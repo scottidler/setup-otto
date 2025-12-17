@@ -1,0 +1,115 @@
+name: 'Setup Otto'
+description: 'Install and configure otto task runner for your GitHub Actions workflows'
+author: 'Scott Idler'
+branding:
+  icon: 'terminal'
+  color: 'blue'
+
+inputs:
+  version:
+    description: 'Version of otto to install (e.g., "v0.1.3", "latest")'
+    required: false
+    default: 'latest'
+  github-token:
+    description: 'GitHub token for API requests (avoids rate limits)'
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  version:
+    description: 'The installed version of otto'
+    value: ${{ steps.setup.outputs.version }}
+  cache-hit:
+    description: 'Whether the binary was restored from cache'
+    value: ${{ steps.cache.outputs.cache-hit }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Determine platform
+      id: platform
+      shell: bash
+      run: |
+        OS="${{ runner.os }}"
+        ARCH="${{ runner.arch }}"
+
+        case "$OS" in
+          Linux)
+            case "$ARCH" in
+              X64) SUFFIX="linux" ;;
+              *) echo "::error::Unsupported Linux architecture: $ARCH"; exit 1 ;;
+            esac
+            ;;
+          macOS)
+            case "$ARCH" in
+              X64) SUFFIX="macos-x86_64" ;;
+              ARM64) SUFFIX="macos-arm64" ;;
+              *) echo "::error::Unsupported macOS architecture: $ARCH"; exit 1 ;;
+            esac
+            ;;
+          *)
+            echo "::error::Unsupported OS: $OS"
+            exit 1
+            ;;
+        esac
+
+        echo "suffix=$SUFFIX" >> $GITHUB_OUTPUT
+        echo "Platform: $OS/$ARCH -> $SUFFIX"
+
+    - name: Resolve version
+      id: resolve
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: |
+        VERSION="${{ inputs.version }}"
+
+        if [ "$VERSION" = "latest" ]; then
+          VERSION=$(gh api repos/scottidler/otto/releases/latest --jq '.tag_name')
+          echo "Resolved 'latest' to $VERSION"
+        fi
+
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Cache otto binary
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.otto-bin
+        key: otto-${{ steps.resolve.outputs.version }}-${{ steps.platform.outputs.suffix }}
+
+    - name: Download otto
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: |
+        VERSION="${{ steps.resolve.outputs.version }}"
+        SUFFIX="${{ steps.platform.outputs.suffix }}"
+        ASSET="otto-${VERSION}-${SUFFIX}.tar.gz"
+
+        echo "Downloading otto $VERSION for $SUFFIX..."
+
+        mkdir -p ~/.otto-bin
+        cd ~/.otto-bin
+
+        gh release download "$VERSION" \
+          --repo scottidler/otto \
+          --pattern "$ASSET"
+
+        tar -xzf "$ASSET"
+        rm "$ASSET"
+        chmod +x otto
+
+        echo "✅ Downloaded otto $VERSION"
+
+    - name: Add to PATH
+      id: setup
+      shell: bash
+      run: |
+        echo "$HOME/.otto-bin" >> $GITHUB_PATH
+        echo "version=${{ steps.resolve.outputs.version }}" >> $GITHUB_OUTPUT
+
+        # Verify installation
+        ~/.otto-bin/otto --version
+
