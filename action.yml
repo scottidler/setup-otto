@@ -36,7 +36,8 @@ runs:
         case "$OS" in
           Linux)
             case "$ARCH" in
-              X64) SUFFIX="linux" ;;
+              X64) SUFFIX="linux-amd64" ;;
+              ARM64) SUFFIX="linux-arm64" ;;
               *) echo "::error::Unsupported Linux architecture: $ARCH"; exit 1 ;;
             esac
             ;;

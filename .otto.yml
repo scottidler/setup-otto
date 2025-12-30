@@ -1,0 +1,8 @@
+otto:
+  api: 1
+  tasks: [hello]
+
+tasks:
+  hello:
+    help: "Print Hello"
+    bash: echo Hello
