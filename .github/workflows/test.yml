@@ -53,7 +53,7 @@ jobs:
           otto --version
           echo "Requested: ${{ env.VERSION }}"
           echo "Installed: ${{ steps.otto.outputs.version }}"
-          test "${{ env.VERSION }}" = "$(otto --version)"
+          test "otto ${{ env.VERSION }}" = "$(otto --version)"
 
   test-caching:
     name: Test caching behavior
