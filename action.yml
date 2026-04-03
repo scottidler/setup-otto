@@ -74,7 +74,7 @@ runs:
 
     - name: Cache otto binary
       id: cache
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ~/.otto-bin
         key: otto-${{ steps.resolve.outputs.version }}-${{ steps.platform.outputs.suffix }}
